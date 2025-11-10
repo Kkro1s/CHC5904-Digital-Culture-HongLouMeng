@@ -1,0 +1,168 @@
+{
+  "selected_chapters": [
+    7,
+    8,
+    22,
+    25,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    34,
+    35,
+    36,
+    37,
+    38,
+    42,
+    45,
+    48,
+    49,
+    50
+  ],
+  "total_chapters": 20,
+  "total_mentions": 453,
+  "chapter_details": [
+    {
+      "chapter": 7,
+      "filename": "ch007.txt",
+      "mention_count": 12,
+      "text_length": 7148,
+      "density": 1.6787912702853947
+    },
+    {
+      "chapter": 8,
+      "filename": "ch008.txt",
+      "mention_count": 21,
+      "text_length": 6410,
+      "density": 3.2761310452418098
+    },
+    {
+      "chapter": 22,
+      "filename": "ch022.txt",
+      "mention_count": 24,
+      "text_length": 6878,
+      "density": 3.4893864495492877
+    },
+    {
+      "chapter": 25,
+      "filename": "ch025.txt",
+      "mention_count": 9,
+      "text_length": 6706,
+      "density": 1.342081717864599
+    },
+    {
+      "chapter": 27,
+      "filename": "ch027.txt",
+      "mention_count": 21,
+      "text_length": 6440,
+      "density": 3.260869565217391
+    },
+    {
+      "chapter": 28,
+      "filename": "ch028.txt",
+      "mention_count": 35,
+      "text_length": 9498,
+      "density": 3.6849863129079807
+    },
+    {
+      "chapter": 29,
+      "filename": "ch029.txt",
+      "mention_count": 11,
+      "text_length": 8753,
+      "density": 1.2567119844624701
+    },
+    {
+      "chapter": 30,
+      "filename": "ch030.txt",
+      "mention_count": 16,
+      "text_length": 5829,
+      "density": 2.744896208612112
+    },
+    {
+      "chapter": 31,
+      "filename": "ch031.txt",
+      "mention_count": 10,
+      "text_length": 7278,
+      "density": 1.3740038472107723
+    },
+    {
+      "chapter": 32,
+      "filename": "ch032.txt",
+      "mention_count": 28,
+      "text_length": 5887,
+      "density": 4.756242568370986
+    },
+    {
+      "chapter": 34,
+      "filename": "ch034.txt",
+      "mention_count": 28,
+      "text_length": 7216,
+      "density": 3.8802660753880267
+    },
+    {
+      "chapter": 35,
+      "filename": "ch035.txt",
+      "mention_count": 38,
+      "text_length": 7911,
+      "density": 4.803438250537226
+    },
+    {
+      "chapter": 36,
+      "filename": "ch036.txt",
+      "mention_count": 24,
+      "text_length": 6759,
+      "density": 3.5508211273857078
+    },
+    {
+      "chapter": 37,
+      "filename": "ch037.txt",
+      "mention_count": 31,
+      "text_length": 9323,
+      "density": 3.3251099431513462
+    },
+    {
+      "chapter": 38,
+      "filename": "ch038.txt",
+      "mention_count": 12,
+      "text_length": 5608,
+      "density": 2.1398002853067046
+    },
+    {
+      "chapter": 42,
+      "filename": "ch042.txt",
+      "mention_count": 30,
+      "text_length": 7624,
+      "density": 3.934942287513116
+    },
+    {
+      "chapter": 45,
+      "filename": "ch045.txt",
+      "mention_count": 15,
+      "text_length": 7785,
+      "density": 1.9267822736030829
+    },
+    {
+      "chapter": 48,
+      "filename": "ch048.txt",
+      "mention_count": 33,
+      "text_length": 6665,
+      "density": 4.951237809452364
+    },
+    {
+      "chapter": 49,
+      "filename": "ch049.txt",
+      "mention_count": 36,
+      "text_length": 7367,
+      "density": 4.886656712365957
+    },
+    {
+      "chapter": 50,
+      "filename": "ch050.txt",
+      "mention_count": 19,
+      "text_length": 7062,
+      "density": 2.6904559614839987
+    }
+  ]
+}

@@ -1,0 +1,392 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Phase 4: Create Streamlit Interactive Application
+Display social network analysis results for Xue Baochai (薛寶釵)
+"""
+
+import streamlit as st
+import pandas as pd
+import networkx as nx
+import matplotlib.pyplot as plt
+import matplotlib
+import json
+import os
+
+# Page configuration must be the first Streamlit command
+st.set_page_config(
+    page_title="Xue Baochai Social Network Analysis",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Try importing pyvis, use alternative if failed
+try:
+    from pyvis.network import Network
+    PYVIS_AVAILABLE = True
+except (ImportError, ModuleNotFoundError) as e:
+    PYVIS_AVAILABLE = False
+    # Store error for debugging (won't display until after set_page_config)
+    _pyvis_error = str(e)
+
+matplotlib.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'DejaVu Sans']
+matplotlib.rcParams['axes.unicode_minus'] = False
+
+# Configuration
+OUTPUT_DIR = "data"
+RESULTS_DIR = os.path.join(OUTPUT_DIR, "results")
+TARGET_CHARACTER = "薛寶釵"
+
+@st.cache_data
+def load_data():
+    """Load all data"""
+    # Load interaction data
+    df_interactions = pd.read_csv(os.path.join(OUTPUT_DIR, "interactions.csv"))
+    
+    # Load centrality metrics
+    df_metrics = pd.read_csv(os.path.join(RESULTS_DIR, "centrality_metrics.csv"))
+    
+    # Load detailed metrics
+    with open(os.path.join(RESULTS_DIR, f"{TARGET_CHARACTER}_metrics.json"), 'r', encoding='utf-8') as f:
+        target_metrics = json.load(f)
+    
+    # Build network
+    G = nx.DiGraph()
+    for _, row in df_interactions.iterrows():
+        if G.has_edge(row['Source'], row['Target']):
+            G[row['Source']][row['Target']]['weight'] += row['Frequency']
+        else:
+            G.add_edge(row['Source'], row['Target'], weight=row['Frequency'])
+    
+    return df_interactions, df_metrics, target_metrics, G
+
+def create_interactive_network(G, target_char):
+    """Create interactive network graph (using pyvis)"""
+    net = Network(height="600px", width="100%", bgcolor="#222222", font_color="white")
+    net.set_options("""
+    {
+      "nodes": {
+        "font": {"size": 14},
+        "scaling": {"min": 10, "max": 30}
+      },
+      "edges": {
+        "arrows": {"to": {"enabled": true}},
+        "smooth": {"type": "continuous"}
+      },
+      "physics": {
+        "barnesHut": {
+          "gravitationalConstant": -2000,
+          "centralGravity": 0.1,
+          "springLength": 200,
+          "springConstant": 0.04
+        }
+      }
+    }
+    """)
+    
+    # Add nodes
+    for node in G.nodes():
+        if node == target_char:
+            net.add_node(node, label=node, color="#ff0000", size=30, title=f"{node}<br>Target Character")
+        else:
+            degree = G.degree(node)
+            net.add_node(node, label=node, color="#87CEEB", size=10 + degree * 2, 
+                        title=f"{node}<br>Degree: {degree}")
+    
+    # Add edges
+    for u, v, data in G.edges(data=True):
+        weight = data.get('weight', 1)
+        net.add_edge(u, v, value=weight, title=f"{u} → {v}: {weight} times")
+    
+    return net
+
+def main():
+    # Title
+    st.title("📚 Xue Baochai Social Network Analysis")
+    st.markdown("---")
+    st.markdown("**Research Scope:** Dream of the Red Chamber Chapters 10-20")
+    st.markdown("**Research Subject:** Xue Baochai (薛寶釵)")
+    
+    # Load data
+    try:
+        df_interactions, df_metrics, target_metrics, G = load_data()
+    except Exception as e:
+        st.error(f"Data loading failed: {e}")
+        st.stop()
+    
+    # Sidebar
+    st.sidebar.header("📊 Navigation")
+    page = st.sidebar.radio(
+        "Select Page",
+        ["Overview", "Network Visualization", "Centrality Analysis", "Interaction Details", "Data Download"]
+    )
+    
+    if page == "Overview":
+        st.header("📈 Research Overview")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Interacting Characters", len(df_interactions))
+        
+        with col2:
+            st.metric("Total Interactions", int(df_interactions['Frequency'].sum()))
+        
+        with col3:
+            st.metric("Network Nodes", G.number_of_nodes())
+        
+        with col4:
+            st.metric("Network Edges", G.number_of_edges())
+        
+        st.markdown("---")
+        
+        # Key findings
+        st.subheader("🔍 Key Findings")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### Most Frequent Interactions")
+            top_interactions = df_interactions.nlargest(5, 'Frequency')[['Target', 'Frequency', 'Chapters']]
+            for idx, row in top_interactions.iterrows():
+                st.markdown(f"**{row['Target']}**: {int(row['Frequency'])} times (Chapters: {row['Chapters']})")
+        
+        with col2:
+            st.markdown("### Xue Baochai's Centrality Metrics")
+            st.markdown(f"- **Degree Centrality**: {target_metrics['degree_centrality']:.4f}")
+            st.markdown(f"- **Total Degree**: {target_metrics['total_degree']}")
+            st.markdown(f"- **Weighted Degree**: {target_metrics['weighted_degree']}")
+            st.markdown(f"- **Betweenness Centrality**: {target_metrics['betweenness_centrality']:.4f}")
+            st.markdown(f"- **PageRank**: {target_metrics['pagerank']:.4f}")
+        
+        # Interaction type distribution
+        st.subheader("📊 Interaction Type Distribution")
+        interaction_types = []
+        for _, row in df_interactions.iterrows():
+            types_str = row['Interaction_Types']
+            for type_info in types_str.split('、'):
+                if '(' in type_info:
+                    type_name = type_info.split('(')[0]
+                    count = int(type_info.split('(')[1].split(')')[0])
+                    interaction_types.extend([type_name] * count)
+        
+        type_df = pd.DataFrame({'Type': interaction_types})
+        type_counts = type_df['Type'].value_counts()
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        type_counts.plot(kind='bar', ax=ax, color=['#FF6B6B', '#4ECDC4', '#45B7D1'])
+        ax.set_xlabel('Interaction Type', fontsize=12)
+        ax.set_ylabel('Frequency', fontsize=12)
+        ax.set_title('Interaction Type Distribution', fontsize=14)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        st.pyplot(fig)
+    
+    elif page == "Network Visualization":
+        st.header("🕸️ Network Visualization")
+        
+        st.markdown("### Interactive Network Graph")
+        st.markdown("Click nodes to view details, drag nodes to adjust layout")
+        
+        if PYVIS_AVAILABLE:
+            try:
+                # Create interactive network
+                net = create_interactive_network(G, TARGET_CHARACTER)
+                
+                # Save as HTML and display
+                html_file = os.path.join(RESULTS_DIR, "interactive_network.html")
+                net.save_graph(html_file)
+                
+                with open(html_file, 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+                
+                st.components.v1.html(html_content, height=700)
+            except Exception as e:
+                st.error(f"Error creating interactive network: {e}")
+                st.info("Falling back to static network graph.")
+                st.markdown("Below is the static network graph:")
+        else:
+            st.info("Interactive network graph requires pyvis library. Please run: `pip install pyvis` and restart the Streamlit app.")
+            st.markdown("Below is the static network graph:")
+        
+        st.markdown("---")
+        
+        # Static network graph
+        st.markdown("### Static Network Graph")
+        fig, ax = plt.subplots(figsize=(14, 10))
+        
+        pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
+        
+        node_colors = ['red' if node == TARGET_CHARACTER else 'lightblue' for node in G.nodes()]
+        node_sizes = [G.degree(node) * 500 + 500 for node in G.nodes()]
+        edge_widths = [G[u][v].get('weight', 1) * 2 for u, v in G.edges()]
+        
+        nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes, ax=ax, alpha=0.7)
+        nx.draw_networkx_edges(G, pos, width=edge_widths, alpha=0.5, edge_color='gray', 
+                             ax=ax, arrows=True, arrowsize=20)
+        nx.draw_networkx_labels(G, pos, font_size=10, ax=ax, font_family='Arial Unicode MS')
+        
+        # Add edge labels
+        edge_labels = {(u, v): str(d['weight']) for u, v, d in G.edges(data=True)}
+        nx.draw_networkx_edge_labels(G, pos, edge_labels, ax=ax, font_size=8)
+        
+        ax.set_title('Xue Baochai Social Network Graph', fontsize=16)
+        ax.axis('off')
+        
+        st.pyplot(fig)
+    
+    elif page == "Centrality Analysis":
+        st.header("📊 Centrality Analysis")
+        
+        st.markdown("### Degree Centrality Comparison")
+        
+        # Degree centrality chart
+        df_sorted = df_metrics.sort_values('degree', ascending=False)
+        
+        fig, ax = plt.subplots(figsize=(12, 8))
+        colors = ['red' if char == TARGET_CHARACTER else 'lightblue' 
+                 for char in df_sorted['character']]
+        bars = ax.barh(range(len(df_sorted)), df_sorted['degree'], color=colors, alpha=0.7)
+        ax.set_yticks(range(len(df_sorted)))
+        ax.set_yticklabels(df_sorted['character'], fontsize=10)
+        ax.set_xlabel('Degree Centrality', fontsize=12)
+        ax.set_title('Character Degree Centrality Comparison', fontsize=14)
+        ax.grid(axis='x', alpha=0.3)
+        
+        for i, (char, degree) in enumerate(zip(df_sorted['character'], df_sorted['degree'])):
+            ax.text(degree + 0.1, i, str(int(degree)), va='center', fontsize=9)
+        
+        plt.tight_layout()
+        st.pyplot(fig)
+        
+        st.markdown("---")
+        
+        # Centrality metrics table
+        st.markdown("### Detailed Centrality Metrics")
+        display_cols = ['character', 'degree', 'in_degree', 'out_degree', 'weighted_degree']
+        if 'degree_centrality' in df_metrics.columns:
+            display_cols.extend(['degree_centrality', 'betweenness_centrality', 'closeness_centrality'])
+        
+        df_display = df_metrics[display_cols].copy()
+        df_display.columns = ['Character', 'Degree', 'In-Degree', 'Out-Degree', 'Weighted Degree', 
+                              'Degree Centrality', 'Betweenness Centrality', 'Closeness Centrality'] if len(display_cols) > 5 else \
+                           ['Character', 'Degree', 'In-Degree', 'Out-Degree', 'Weighted Degree']
+        
+        st.dataframe(df_display.style.highlight_max(axis=0, subset=df_display.columns[1:]), 
+                    use_container_width=True)
+    
+    elif page == "Interaction Details":
+        st.header("📝 Interaction Details")
+        
+        # Filter options
+        col1, col2 = st.columns(2)
+        with col1:
+            selected_chars = st.multiselect(
+                "Select Characters",
+                options=df_interactions['Target'].unique(),
+                default=df_interactions['Target'].tolist()
+            )
+        
+        with col2:
+            min_freq = st.slider("Minimum Interaction Frequency", 1, int(df_interactions['Frequency'].max()), 1)
+        
+        # Filter data
+        filtered_df = df_interactions[
+            (df_interactions['Target'].isin(selected_chars)) & 
+            (df_interactions['Frequency'] >= min_freq)
+        ].sort_values('Frequency', ascending=False)
+        
+        st.markdown(f"### Displaying {len(filtered_df)} interaction records")
+        
+        # Display interaction table
+        display_cols = ['Target', 'Frequency', 'Interaction_Types', 'Chapters', 
+                       'Context_1', 'Context_2']
+        st.dataframe(
+            filtered_df[display_cols].rename(columns={
+                'Target': 'Target Character',
+                'Frequency': 'Frequency',
+                'Interaction_Types': 'Interaction Types',
+                'Chapters': 'Chapters',
+                'Context_1': 'Context 1',
+                'Context_2': 'Context 2'
+            }),
+            use_container_width=True,
+            height=400
+        )
+        
+        # Detailed context
+        st.markdown("### Detailed Context")
+        selected_interaction = st.selectbox(
+            "Select interaction relationship to view detailed context",
+            options=[f"{row['Target']} ({row['Frequency']} times)" 
+                   for _, row in filtered_df.iterrows()]
+        )
+        
+        if selected_interaction:
+            target_name = selected_interaction.split(' (')[0]
+            interaction_row = filtered_df[filtered_df['Target'] == target_name].iloc[0]
+            
+            st.markdown(f"**{TARGET_CHARACTER} ↔ {target_name}**")
+            st.markdown(f"- **Frequency**: {interaction_row['Frequency']} times")
+            st.markdown(f"- **Types**: {interaction_row['Interaction_Types']}")
+            st.markdown(f"- **Chapters**: {interaction_row['Chapters']}")
+            
+            if pd.notna(interaction_row['Context_1']):
+                st.markdown("**Context 1:**")
+                st.text(interaction_row['Context_1'])
+            if pd.notna(interaction_row['Context_2']):
+                st.markdown("**Context 2:**")
+                st.text(interaction_row['Context_2'])
+    
+    elif page == "Data Download":
+        st.header("💾 Data Download")
+        
+        st.markdown("### Download Analysis Results")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.download_button(
+                label="Download Interactions Table (CSV)",
+                data=df_interactions.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'),
+                file_name="interactions.csv",
+                mime="text/csv"
+            )
+        
+        with col2:
+            st.download_button(
+                label="Download Centrality Metrics (CSV)",
+                data=df_metrics.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'),
+                file_name="centrality_metrics.csv",
+                mime="text/csv"
+            )
+        
+        with col3:
+            metrics_json = json.dumps(target_metrics, ensure_ascii=False, indent=2)
+            st.download_button(
+                label="Download Xue Baochai Detailed Metrics (JSON)",
+                data=metrics_json.encode('utf-8'),
+                file_name="baochai_metrics.json",
+                mime="application/json"
+            )
+        
+        st.markdown("---")
+        st.markdown("### Data Description")
+        st.markdown("""
+        - **interactions.csv**: Contains detailed information of all interaction relationships
+        - **centrality_metrics.csv**: Contains centrality metrics for all characters
+        - **baochai_metrics.json**: Detailed centrality metrics for Xue Baochai (JSON format)
+        """)
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: gray;'>
+    <p>Dream of the Red Chamber Character Social Network Analysis | Data Source: ctext.org | Research Scope: Chapters 10-20</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
+
