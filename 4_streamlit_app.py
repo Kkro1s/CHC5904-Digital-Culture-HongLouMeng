@@ -10,6 +10,7 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.font_manager as fm
 import json
 import os
 
@@ -30,8 +31,52 @@ except (ImportError, ModuleNotFoundError) as e:
     # Store error for debugging (won't display until after set_page_config)
     _pyvis_error = str(e)
 
-matplotlib.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'DejaVu Sans']
-matplotlib.rcParams['axes.unicode_minus'] = False
+# 配置中文字体 - 兼容Streamlit Cloud
+def setup_chinese_font():
+    """设置中文字体，优先使用系统中可用的字体"""
+    # 尝试查找可用的中文字体
+    chinese_fonts = [
+        'Arial Unicode MS',  # macOS
+        'SimHei',  # Windows
+        'Microsoft YaHei',  # Windows
+        'WenQuanYi Micro Hei',  # Linux
+        'WenQuanYi Zen Hei',  # Linux
+        'Noto Sans CJK SC',  # Linux/通用
+        'Noto Sans CJK TC',  # Linux/通用
+        'Source Han Sans CN',  # Linux/通用
+        'DejaVu Sans',  # 回退字体
+    ]
+    
+    # 获取系统中所有可用字体
+    available_fonts = [f.name for f in fm.fontManager.ttflist]
+    
+    # 查找第一个可用的中文字体
+    font_found = None
+    for font in chinese_fonts:
+        if font in available_fonts:
+            font_found = font
+            break
+    
+    # 如果找不到，尝试查找包含'CJK'或'Chinese'的字体
+    if font_found is None:
+        for font_name in available_fonts:
+            if any(keyword in font_name.lower() for keyword in ['cjk', 'chinese', 'han', 'hei', 'song']):
+                font_found = font_name
+                break
+    
+    # 设置字体
+    if font_found:
+        matplotlib.rcParams['font.sans-serif'] = [font_found] + chinese_fonts
+    else:
+        # 如果找不到中文字体，使用默认字体列表
+        matplotlib.rcParams['font.sans-serif'] = chinese_fonts
+    
+    matplotlib.rcParams['axes.unicode_minus'] = False
+    
+    return font_found
+
+# 初始化字体配置
+CHINESE_FONT = setup_chinese_font()
 
 # Configuration
 OUTPUT_DIR = "data"
@@ -206,10 +251,21 @@ def main():
         
         fig, ax = plt.subplots(figsize=(10, 6))
         type_counts.plot(kind='bar', ax=ax, color=['#FF6B6B', '#4ECDC4', '#45B7D1'])
-        ax.set_xlabel('Interaction Type', fontsize=12)
-        ax.set_ylabel('Frequency', fontsize=12)
-        ax.set_title('Interaction Type Distribution', fontsize=14)
-        plt.xticks(rotation=45)
+        
+        # 设置字体属性，确保中文正常显示
+        font_prop = {'fontsize': 12}
+        if CHINESE_FONT:
+            font_prop['fontfamily'] = CHINESE_FONT
+        
+        ax.set_xlabel('Interaction Type', **font_prop)
+        ax.set_ylabel('Frequency', **font_prop)
+        title_prop = {'fontsize': 14}
+        if CHINESE_FONT:
+            title_prop['fontfamily'] = CHINESE_FONT
+        ax.set_title('Interaction Type Distribution', **title_prop)
+        
+        # 设置x轴标签字体，确保中文正常显示
+        ax.set_xticklabels(type_counts.index, rotation=45, ha='right', **font_prop)
         plt.tight_layout()
         st.pyplot(fig)
     
@@ -302,13 +358,19 @@ def main():
         nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes, ax=ax, alpha=0.7)
         nx.draw_networkx_edges(G, pos, width=edge_widths, alpha=0.5, edge_color='gray', 
                              ax=ax, arrows=True, arrowsize=20)
-        nx.draw_networkx_labels(G, pos, font_size=10, ax=ax, font_family='Arial Unicode MS')
+        # 使用配置的中文字体
+        label_font = CHINESE_FONT if CHINESE_FONT else 'sans-serif'
+        nx.draw_networkx_labels(G, pos, font_size=10, ax=ax, font_family=label_font)
         
         # Add edge labels
         edge_labels = {(u, v): str(d['weight']) for u, v, d in G.edges(data=True)}
         nx.draw_networkx_edge_labels(G, pos, edge_labels, ax=ax, font_size=8)
         
-        ax.set_title('Xue Baochai Social Network Graph', fontsize=16)
+        # 设置标题字体
+        network_title_prop = {'fontsize': 16}
+        if CHINESE_FONT:
+            network_title_prop['fontfamily'] = CHINESE_FONT
+        ax.set_title('Xue Baochai Social Network Graph', **network_title_prop)
         ax.axis('off')
         
         st.pyplot(fig)
@@ -341,13 +403,29 @@ def main():
                  for freq in df_sorted['Frequency']]
         bars = ax.barh(range(len(df_sorted)), df_sorted['Frequency'], color=colors, alpha=0.8)
         ax.set_yticks(range(len(df_sorted)))
-        ax.set_yticklabels(df_sorted['character'], fontsize=10)
-        ax.set_xlabel('Interaction Frequency (times)', fontsize=12)
-        ax.set_title('Interaction Frequency with Xue Baochai', fontsize=14)
+        
+        # 设置字体属性，确保中文人物名称正常显示
+        freq_font_prop = {'fontsize': 10}
+        if CHINESE_FONT:
+            freq_font_prop['fontfamily'] = CHINESE_FONT
+        ax.set_yticklabels(df_sorted['character'], **freq_font_prop)
+        
+        label_prop = {'fontsize': 12}
+        title_prop = {'fontsize': 14}
+        if CHINESE_FONT:
+            label_prop['fontfamily'] = CHINESE_FONT
+            title_prop['fontfamily'] = CHINESE_FONT
+        
+        ax.set_xlabel('Interaction Frequency (times)', **label_prop)
+        ax.set_title('Interaction Frequency with Xue Baochai', **title_prop)
         ax.grid(axis='x', alpha=0.3)
         
+        # 设置数值标签字体
+        text_prop = {'fontsize': 9}
+        if CHINESE_FONT:
+            text_prop['fontfamily'] = CHINESE_FONT
         for i, (char, freq) in enumerate(zip(df_sorted['character'], df_sorted['Frequency'])):
-            ax.text(freq + 1, i, str(int(freq)), va='center', fontsize=9)
+            ax.text(freq + 1, i, str(int(freq)), va='center', **text_prop)
         
         plt.tight_layout()
         st.pyplot(fig)
