@@ -44,27 +44,47 @@ def setup_chinese_font():
         'Noto Sans CJK SC',  # Linux/通用
         'Noto Sans CJK TC',  # Linux/通用
         'Source Han Sans CN',  # Linux/通用
+        'STHeiti',  # macOS备用
+        'Lantinghei SC',  # macOS备用
         'DejaVu Sans',  # 回退字体
     ]
     
     # 获取系统中所有可用字体
-    available_fonts = [f.name for f in fm.fontManager.ttflist]
+    try:
+        available_fonts = [f.name for f in fm.fontManager.ttflist]
+    except:
+        available_fonts = []
     
     # 查找第一个可用的中文字体
     font_found = None
+    font_path = None
+    
     for font in chinese_fonts:
         if font in available_fonts:
             font_found = font
+            # 查找字体文件路径
+            try:
+                for font_file in fm.fontManager.ttflist:
+                    if font_file.name == font:
+                        font_path = font_file.fname
+                        break
+            except:
+                pass
             break
     
     # 如果找不到，尝试查找包含'CJK'或'Chinese'的字体
     if font_found is None:
-        for font_name in available_fonts:
-            if any(keyword in font_name.lower() for keyword in ['cjk', 'chinese', 'han', 'hei', 'song']):
-                font_found = font_name
-                break
+        try:
+            for font_file in fm.fontManager.ttflist:
+                font_name = font_file.name
+                if any(keyword in font_name.lower() for keyword in ['cjk', 'chinese', 'han', 'hei', 'song', 'lanting', 'st']):
+                    font_found = font_name
+                    font_path = font_file.fname
+                    break
+        except:
+            pass
     
-    # 设置字体
+    # 设置matplotlib全局字体
     if font_found:
         matplotlib.rcParams['font.sans-serif'] = [font_found] + chinese_fonts
     else:
@@ -73,10 +93,25 @@ def setup_chinese_font():
     
     matplotlib.rcParams['axes.unicode_minus'] = False
     
-    return font_found
+    # 创建FontProperties对象用于networkx
+    font_prop = None
+    if font_found:
+        try:
+            if font_path and os.path.exists(font_path):
+                font_prop = fm.FontProperties(fname=font_path)
+            else:
+                font_prop = fm.FontProperties(family=font_found)
+        except Exception as e:
+            # 如果创建FontProperties失败，尝试使用字体名称
+            try:
+                font_prop = fm.FontProperties(family=font_found)
+            except:
+                pass
+    
+    return font_found, font_prop
 
 # 初始化字体配置
-CHINESE_FONT = setup_chinese_font()
+CHINESE_FONT, CHINESE_FONT_PROP = setup_chinese_font()
 
 # Configuration
 OUTPUT_DIR = "data"
@@ -358,7 +393,8 @@ def main():
         nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes, ax=ax, alpha=0.7)
         nx.draw_networkx_edges(G, pos, width=edge_widths, alpha=0.5, edge_color='gray', 
                              ax=ax, arrows=True, arrowsize=20)
-        # 使用配置的中文字体
+        # 使用配置的中文字体 - networkx只支持font_family参数（字符串）
+        # 由于已经设置了matplotlib的全局字体，使用'sans-serif'会自动使用配置的中文字体
         label_font = CHINESE_FONT if CHINESE_FONT else 'sans-serif'
         nx.draw_networkx_labels(G, pos, font_size=10, ax=ax, font_family=label_font)
         
