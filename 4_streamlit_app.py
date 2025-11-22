@@ -118,6 +118,50 @@ OUTPUT_DIR = "data"
 RESULTS_DIR = os.path.join(OUTPUT_DIR, "results")
 TARGET_CHARACTER = "薛寶釵"
 
+# 中英文映射字典
+INTERACTION_TYPE_MAPPING = {
+    "对话": "Dialogue",
+    "行为": "Action", 
+    "共同出现": "Co-occurrence"
+}
+
+# 人物名称中英文映射（所有人物）
+CHARACTER_NAME_MAPPING = {
+    "薛寶釵": "Xue Baochai",
+    "賈寶玉": "Jia Baoyu",
+    "林黛玉": "Lin Daiyu",
+    "賈母": "Grandmother Jia",
+    "王夫人": "Lady Wang",
+    "襲人": "Xiren",
+    "探春": "Tanchun",
+    "史湘雲": "Shi Xiangyun",
+    "湘雲": "Xiangyun",
+    "鳳姐": "Fengjie",
+    "王熙鳳": "Wang Xifeng",
+    "迎春": "Yingchun",
+    "惜春": "Xichun",
+    "李紈": "Li Wan",
+    "妙玉": "Miaoyu",
+    "平兒": "Ping'er",
+    "香菱": "Xiangling",
+    "晴雯": "Qingwen",
+    "紫鵑": "Zijuan",
+    "鴛鴦": "Yuanyang",
+    "司棋": "Siqi",
+    "元春": "Yuanchun",
+    "薛姨媽": "Aunt Xue",
+    "賈政": "Jia Zheng",
+    "鶯兒": "Ying'er"
+}
+
+def translate_interaction_type(chinese_type):
+    """将中文交互类型转换为英文"""
+    return INTERACTION_TYPE_MAPPING.get(chinese_type, chinese_type)
+
+def translate_character_name(chinese_name):
+    """将中文人物名称转换为英文"""
+    return CHARACTER_NAME_MAPPING.get(chinese_name, chinese_name)
+
 @st.cache_data
 def load_data():
     """Load all data"""
@@ -183,20 +227,23 @@ def create_interactive_network(G, target_char):
     }
     """)
     
-    # Add nodes
+    # Add nodes with English labels
     for node in G.nodes():
+        english_label = translate_character_name(node)
         if node == target_char:
-            net.add_node(node, label=node, color="#ff0000", size=30, 
-                        title=f"{node}<br>Target Character<br>Degree: {G.degree(node)}")
+            net.add_node(node, label=english_label, color="#ff0000", size=30, 
+                        title=f"{english_label} (Target Character)<br>Degree: {G.degree(node)}")
         else:
             degree = G.degree(node)
-            net.add_node(node, label=node, color="#87CEEB", size=10 + degree * 2, 
-                        title=f"{node}<br>Degree: {degree}")
+            net.add_node(node, label=english_label, color="#87CEEB", size=10 + degree * 2, 
+                        title=f"{english_label}<br>Degree: {degree}")
     
-    # Add edges
+    # Add edges with English labels
     for u, v, data in G.edges(data=True):
         weight = data.get('weight', 1)
-        net.add_edge(u, v, value=weight, title=f"{u} → {v}: {weight} times")
+        u_english = translate_character_name(u)
+        v_english = translate_character_name(v)
+        net.add_edge(u, v, value=weight, title=f"{u_english} → {v_english}: {weight} times")
     
     return net
 
@@ -284,23 +331,25 @@ def main():
         type_df = pd.DataFrame({'Type': interaction_types})
         type_counts = type_df['Type'].value_counts()
         
-        fig, ax = plt.subplots(figsize=(10, 6))
-        type_counts.plot(kind='bar', ax=ax, color=['#FF6B6B', '#4ECDC4', '#45B7D1'])
+        # 将中文交互类型转换为英文用于显示
+        type_counts_english = pd.Series({
+            translate_interaction_type(chinese_type): count 
+            for chinese_type, count in type_counts.items()
+        })
         
-        # 设置字体属性，确保中文正常显示
+        fig, ax = plt.subplots(figsize=(10, 6))
+        type_counts_english.plot(kind='bar', ax=ax, color=['#FF6B6B', '#4ECDC4', '#45B7D1'])
+        
+        # 设置字体属性
         font_prop = {'fontsize': 12}
-        if CHINESE_FONT:
-            font_prop['fontfamily'] = CHINESE_FONT
+        title_prop = {'fontsize': 14}
         
         ax.set_xlabel('Interaction Type', **font_prop)
         ax.set_ylabel('Frequency', **font_prop)
-        title_prop = {'fontsize': 14}
-        if CHINESE_FONT:
-            title_prop['fontfamily'] = CHINESE_FONT
         ax.set_title('Interaction Type Distribution', **title_prop)
         
-        # 设置x轴标签字体，确保中文正常显示
-        ax.set_xticklabels(type_counts.index, rotation=45, ha='right', **font_prop)
+        # 设置x轴标签（已经是英文，不需要中文字体）
+        ax.set_xticklabels(type_counts_english.index, rotation=45, ha='right', **font_prop)
         plt.tight_layout()
         st.pyplot(fig)
     
@@ -393,20 +442,17 @@ def main():
         nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes, ax=ax, alpha=0.7)
         nx.draw_networkx_edges(G, pos, width=edge_widths, alpha=0.5, edge_color='gray', 
                              ax=ax, arrows=True, arrowsize=20)
-        # 使用配置的中文字体 - networkx只支持font_family参数（字符串）
-        # 由于已经设置了matplotlib的全局字体，使用'sans-serif'会自动使用配置的中文字体
-        label_font = CHINESE_FONT if CHINESE_FONT else 'sans-serif'
-        nx.draw_networkx_labels(G, pos, font_size=10, ax=ax, font_family=label_font)
+        
+        # 创建英文标签字典用于显示
+        labels_english = {node: translate_character_name(node) for node in G.nodes()}
+        nx.draw_networkx_labels(G, pos, labels=labels_english, font_size=10, ax=ax, font_family='sans-serif')
         
         # Add edge labels
         edge_labels = {(u, v): str(d['weight']) for u, v, d in G.edges(data=True)}
         nx.draw_networkx_edge_labels(G, pos, edge_labels, ax=ax, font_size=8)
         
-        # 设置标题字体
-        network_title_prop = {'fontsize': 16}
-        if CHINESE_FONT:
-            network_title_prop['fontfamily'] = CHINESE_FONT
-        ax.set_title('Xue Baochai Social Network Graph', **network_title_prop)
+        # 设置标题
+        ax.set_title('Xue Baochai Social Network Graph', fontsize=16)
         ax.axis('off')
         
         st.pyplot(fig)
@@ -440,28 +486,17 @@ def main():
         bars = ax.barh(range(len(df_sorted)), df_sorted['Frequency'], color=colors, alpha=0.8)
         ax.set_yticks(range(len(df_sorted)))
         
-        # 设置字体属性，确保中文人物名称正常显示
-        freq_font_prop = {'fontsize': 10}
-        if CHINESE_FONT:
-            freq_font_prop['fontfamily'] = CHINESE_FONT
-        ax.set_yticklabels(df_sorted['character'], **freq_font_prop)
+        # 将中文人物名称转换为英文用于显示
+        character_names_english = [translate_character_name(char) for char in df_sorted['character']]
+        ax.set_yticklabels(character_names_english, fontsize=10)
         
-        label_prop = {'fontsize': 12}
-        title_prop = {'fontsize': 14}
-        if CHINESE_FONT:
-            label_prop['fontfamily'] = CHINESE_FONT
-            title_prop['fontfamily'] = CHINESE_FONT
-        
-        ax.set_xlabel('Interaction Frequency (times)', **label_prop)
-        ax.set_title('Interaction Frequency with Xue Baochai', **title_prop)
+        ax.set_xlabel('Interaction Frequency (times)', fontsize=12)
+        ax.set_title('Interaction Frequency with Xue Baochai', fontsize=14)
         ax.grid(axis='x', alpha=0.3)
         
-        # 设置数值标签字体
-        text_prop = {'fontsize': 9}
-        if CHINESE_FONT:
-            text_prop['fontfamily'] = CHINESE_FONT
+        # 设置数值标签
         for i, (char, freq) in enumerate(zip(df_sorted['character'], df_sorted['Frequency'])):
-            ax.text(freq + 1, i, str(int(freq)), va='center', **text_prop)
+            ax.text(freq + 1, i, str(int(freq)), va='center', fontsize=9)
         
         plt.tight_layout()
         st.pyplot(fig)
@@ -528,7 +563,7 @@ def main():
         
         # Add explanation
         st.markdown("""
-        <div style='background-color: #f0f2f6; padding: 15px; border-radius: 5px; margin-top: 10px;'>
+        <div style='background-color: #000000; color: #ffffff; padding: 15px; border-radius: 5px; margin-top: 10px;'>
         <strong>Note:</strong>
         <ul style='margin: 5px 0; padding-left: 20px;'>
             <li><strong>Interaction Frequency</strong>: Number of interactions with Xue Baochai (most meaningful metric for this network)</li>
